@@ -1,0 +1,413 @@
+---
+title: "ACTL4305 Assignment 1 - z5194905"
+Author: "z5194905"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+  html_document: default
+---
+
+\pagebreak
+
+# Task 1: The iterative cycle of EDA
+Exploratory data analysis (EDA) is a procedure to systematically produce descriptive summaries of a dataset by investigating any data problems and understand the relationships between its predictors. EDA includes importing and cleaning data as well as preparing for future modelling or predictions. It provides a summary of the data through descriptive statistics and visualisations and should reveal data flaws such as missing values. 
+
+**The EDA procedure is a 3 step process. **
+
+1. **Develop a question** 
+  * Questions are at the heart of data analytics and they direct data exploration. Some examples of good exploratory questions are the following-
+    + What does my data look like?
+    + Are some of my variables correlated?
+2. **Find answers**
+  * Import data 
+    + To begin exploring, the data is needed in a workable environment, such as R or python. Merging of required datasets should also be done at this stage.  
+  * Check data quality
+    + check data quality by summarising each predictor for quick inspection and cleanse any missing values by either imputting or removing them. The following common data problems should also be controlled - 
+      + Duplicated data
+      + Unlikely extreme values
+      + Inconsistently formatted entries; such as dates
+  * Manipulate data 
+    + Data transformation is important in preparing it for modelling and visualisation. This can include creating new variables from the current data, such as interaction terms, or changing variables types, for example from numeric to a factor. If there are illegal variables in your dataset, such as an individuals Tax File Number or similar private information, these should be removed. Numerical transformations of variables such as logarithmic transformations should be taken when appropriate.
+  * Visualise data 
+    + Probably the most important step, visualised data can be easily interpreted and can summarise quickly. It can reveal any further explorations needed before modelling, any missing values or any large outliers that may need cleaning. This can include-
+      + plotting correlations between variables in a correlation matrix
+      + probability density functions of variables
+      + histograms of factor variables
+      + scatterplots to check for linearity
+      + Box and whisker plots
+3. **Refine question and form a new question**
+  * Using the insights from above, the original question should now either be answered, need further investigation or found to be inappropriate. This question should be refined accordingly and a new one will be made.
+Repeat steps 1 - 3 until all relevant questions are answered. 
+
+# Task 2: The EDA objectives in this report
+There are three main objectives in this report-
+
+1. Observe data
+2. Assess missing values 
+3. Prepare for modelling. 
+
+These objectives will be explored through a number of questions in the iterative cycle of EDA. 
+
+* **Observe data**
+    + Observing the data is a simple objective, but important in noticing any prominent data errors before continuing forward. This step can highlight any inherent data problems that need to be addressed.
+    + A good observation of the data includes *understanding the format* of the data. This is critical in analysing the data itself and can reduce interpretability and errors at future stages.
+    + Any *abnormal values* should be found prior to any indepth exploration. Significant outliers or inconsistent entries can create a number of issues including duplicated data or large unexpected deviances.
+* **Assess missing values**
+    + Missing values cause a range of issues. Explicitly missing values can cause a range of computational errors in R functions. They can also introduce bias which can lead to invalid conclusions. However, missing values can also be informative when they can predict a change in price. Therefore, they need to be validly assessed.
+    + Missing values need to be either imputed or removed before analysis as they can create modelling errors. They can either be removed, losing information in the process, or imputed. The treatment of missing values can depend on the proportion of missing values. If 50% of a dataset is missing, it would not be appropriate to remove these values.
+* **Prepare for modelling**
+    + *Multicollinearity* leads to unstable estimates and higher variance. Therefore removing any highly correlated terms is necessary for effective modelling. 
+    + *Non-linear data* will not model well under linear regression. Therefore, some transformations of the data may be needed to appropriately visualise predictors and understand any underlying relationships.
+    + *Interaction terms* can be informative in many modelling techniques. Since they can vastly improve some model's predictive capabilities, they should be considered.  Interaction terms can also increase the interpretability of a model.
+
+# Task 3: EDA
+## Objective 1: Observe Data
+### Question 1: What does my data look like?
+```{r setup, include = FALSE}
+library(tidyverse)
+library(corrplot)
+library(kableExtra)
+library(ggpubr)
+
+setwd("~/University/year3/T3/ACTL4305/Assignment/Assignment 1")
+
+data <- read.csv("trainset.csv")
+```
+The first step was to load the data into Rstudio through the read.csv function. The packages "tidyverse", "ggpubr", "kableExtra" and "corrplot" were also loaded and will be used for the remainder of this report for calculations and visualisations. A quick inspection of the data shows that both the first and last entries have no missing values and that there are `r ncol(data)` columns in the data.
+```{r firstLook, echo = FALSE}
+knitr::kable(head(data), caption = "First 6 rows", booktabs = TRUE) %>% 
+  kable_styling(font_size = 7, latex_options = "hold_position")
+
+knitr::kable(tail(data), caption = "Last 6 rows", booktabs = TRUE) %>% 
+  kable_styling(font_size = 7, latex_options = "hold_position")
+```
+
+**Duplicate values**
+
+There were only `r data %>% select(-Longitude, -Latitude) %>% duplicated() %>% sum()` duplicated rows in the data. These were not removed from the dataset since it was assumed that there could be apartment blocks which may be seperate listings but are otherwise identical. 
+
+**Answer:**
+The data has `r ncol(data)` columns and `r nrow(data)` rows. It is relatively clean, with no significant data duplicates and understandable formatting.
+
+### Question 2: Are there any abnormal values?
+All columns were summarised using R's "summary" function and plotted to show general relationships and potential outliers (results in appendix). 
+
+**Answer:**
+These summaries showed the following abnormal entries -
+
+  * Values of 3 in column UnCon 
+  * There are both "BHK" and "bHK" entries in the ToP column. These were assumed to both be BHK. 
+  * There are extreme values of `r max(na.omit(data$NoS))` for both NoS and NoP, these were assumed to be errors 
+  * There are explicit missing values across a number of variables 
+
+## Objective 1: Conclusion
+The data is relatively clean. There are a few missing values and a number of entries entered incorrectly, however, these values are an overwhelming minority. In the second objective these inconsistent entries will need to be altered.
+
+## Objective 2: Assess missing values
+### Question 3: How should the missing values be treated?
+
+The errors found in the observing the data will be altered before any assessment of missing data to get a full depiction of the missing entries. These were the alterations-
+
+  * All UnCon values of either 3 or NA were changed to 2 to represent missing entries 
+  * "bHK" entries were corrected to "BHK" 
+  * NoS and NoP values greater than 1000 were changed to NA, since it was assumed that this is an unreasonable amount of nearby parks and supermarkets 
+
+```{r missingValues, include = FALSE}
+# NA value
+data$UnCon[is.na(data$UnCon)] <- 2
+
+# UnCon value changed from 3 to 2
+data <- data %>% mutate(UnCon = 
+                          ifelse(data %>% select(UnCon) == 3, 2, data$UnCon))
+# bHK changed to BHK
+levels(data$ToP)[levels(data$ToP) == "bHK"] <- "BHK"
+
+# NoS and NoP large values changed
+data <- data %>% mutate(NoS =
+                          as.numeric(ifelse(data %>% select(NoS) >= 1000, NA, data$NoS)))
+data <- data %>% mutate(NoP =
+                          as.numeric(ifelse(data %>% select(NoP) >= 1000, NA, data$NoP)))
+```
+
+Now that all data corrections have been made, the sample below shows some rows with at least one missing value. There does not seem to be any relationships between missing data.
+```{r Explicit missing, echo = FALSE}
+# Check explicit NA values
+missingData <- data[rowSums(is.na(data))>0,]
+knitr::kable(head(missingData, n = 13), caption = "First 13 rows of missing data", booktabs = TRUE) %>% 
+  kable_styling(font_size = 7, latex_options = "hold_position")
+
+numMissing <- nrow(missingData)
+propMissing <- nrow(missingData)/nrow(data)
+```
+
+
+``` {r, include = FALSE}
+# remove all explicit missing data
+data <- data[rowSums(is.na(data)) == 0,]
+```
+The plots below show the resulting cleaned data and how the data is distributed across a number of factors.
+*Note: there are only `r nrow(data %>% filter(NoP > 8))` NoP values greater than 8.* 
+```{r fig.align = "center", echo = FALSE, warning=FALSE}
+# relook at changed variables
+par(mfrow=c(1,2))
+plotUnCon <- ggplot(data) +
+  aes(x = UnCon) +
+  geom_bar() +
+  ggtitle("Counts of UnCon")
+plotToP <- ggplot(data) +
+  aes(x = ToP) +
+  geom_bar() +
+  ggtitle("Counts of ToP")
+plotNoS <- ggplot(data) +
+  aes(x = NoS) +
+  geom_bar() +
+  ggtitle("Counts of NoS")
+plotNoP <- ggplot(data) +
+  aes(x = NoP) +
+  geom_bar() +
+  xlim(c(0, 8)) +
+  ggtitle("Counts of NoP less than 9")
+
+ggarrange(plotUnCon, plotToP, plotNoS, plotNoP, ncol = 2, nrow = 2)
+```
+
+**Answer:** 
+There appears to be no underlying trend between missing values. They are not clustered at any particular location of the dataset and do not appear to be informative. Since there seems to be no trend amongst missing values and there are only `r nrow(missingData)` rows missing (`r round(nrow(missingData)/nrow(data) , 4)*100`% of all data), all missing data was removed. 
+
+
+## Objective 2: Conclusion
+There were some missing entries in the dataset, however, since they were few, all were removed from the dataset. All variables now have consistent data entries and have no missing values. 
+
+## Objective 3: Prepare for modelling
+### Question 4: Are there any collinear terms?
+To understand how terms are correlated with each other, a correlation plot was used. From this figure, two pairs of variables stand out-
+```{r, echo = FALSE}
+numeric_cols <- unlist(lapply(data, is.numeric))
+numeric_data <- na.omit(data[,numeric_cols])
+cor_data <- cor(numeric_data)
+```
+1. UnCon and RtM with a correlation of `r round(cor_data[which(colnames(cor_data) == "RtM"), which(colnames(cor_data) == "UnCon")],2) `
+2. NoP and NoR with a correlation of `r round(cor_data[which(colnames(cor_data) == "NoP"), which(colnames(cor_data) == "NoR")],2) `
+```{r correlations, echo = FALSE, fig.align = "center", fig.height=4, fig.width = 4}
+corrplot(cor_data, method = "circle")
+```
+``` {r, include = FALSE}
+cor_data[which(colnames(cor_data) == "RtM"), which(colnames(cor_data) == "UnCon")]
+cor_data[which(colnames(cor_data) == "NoP"), which(colnames(cor_data) == "NoR")]
+
+# Check there is not a building that is both under construction and ready to move
+data %>% filter(UnCon == 1 && RtM == 1)
+# Check that if a building is not under construction, its not ready to move
+data %>% filter(RtM == 0 && UnCon == 0)
+# RtM is just an indicator of wether its under construction or not
+
+# since correlation of RtM and UnCon is high. Remove the least informative -> UnCon (more missing values)
+data <- data %>% select(-UnCon)
+```
+
+The relationship between UnCon and RTM is expected, as buildings under construction should not be moved into. Filtering the data reveals that there are no buildings which are both under construction and ready to move, the only discrepency between the two is that UnCon has more missing values. Therefore it is removed as it is the least informative.
+
+The second pair of highly correlated variables is unexpected, the number of nearby parks is closely related to the number of rooms. This relationship is shown below.
+```{r parkvroom, echo = FALSE, fig.align = "left", fig.height=2, fig.width=3}
+ggplot(data) +
+  geom_point(aes(NoP, NoR)) +
+  ggtitle("Parks vs Rooms")
+```
+```{r, include = FALSE}
+cor_data[which(colnames(cor_data) == "NoP"), which(colnames(cor_data) == "Price")]
+cor_data[which(colnames(cor_data) == "NoR"), which(colnames(cor_data) == "Price")]
+
+```
+Since the number of rooms is a better indicator of price with a correlation of `r round(cor_data[which(colnames(cor_data) == "NoR"), which(colnames(cor_data) == "Price")],2)` compared to `r round(cor_data[which(colnames(cor_data) == "NoP"), which(colnames(cor_data) == "Price")],2)` the number of parks was removed. 
+```{r, include = FALSE}
+data <- data %>% select(-NoP)
+```
+
+**Answer:**
+There were some collinear terms. Houses that were under construction were never ready for moving into and houses with more rooms usually had more surrounding parks. To avoid collinearity problems the UnCon and NoP columns were dropped.
+
+### Question 5: Is my data linear?
+Price will be used as the response variable in future modelling, therefore all continuous variables will be plotted against it to check for linearity. Aside from price, there are only 3 other continuous variables, size, longitude and latitude. As expected, the logarithmic transformations of longitude and latitude were not helpful but can be found in the appendix. 
+
+Since size has a long tail, its range was restriced to 30000. Both size and its log transformation seem to be relatively poor linear fits, however there may be some non-linear trend in log(size). 
+```{r linear, fig.align = "center", fig.height = 3, echo = FALSE}
+plotsize <- ggplot(filter(data, Size < 30000)) +
+  geom_point(aes(Size, Price)) +
+  ggtitle("Size vs Price")
+plotlogsize <- ggplot(filter(data, Size < 30000)) +
+  geom_point(aes(log(Size),Price)) +
+  ggtitle("log(Size) vs Price")
+
+ggarrange(plotsize, plotlogsize, nrow = 1, ncol = 2)
+
+```
+
+**Answer:**
+There seems to be no appropriate transformation of house size that can improve upon the current predictor. There are no transformations required in the dataset.
+
+### Question 6: Are there any interaction terms?
+When present, interaction terms can be a powerful tool in modelling and are easily interpretable. By plotting variables against one another, it seems that there is no obvious interaction between any of the predictors. Since there is no interaction of note, all results of this can be found in the appendix.
+
+**Answer**:
+There seems to be no obvious interaction effects between terms, however in future modelling, such as tree-based methods, a relationship may become clear. Therefore, no interaction terms will be introduced in the EDA.
+
+### Question 7: How do prices differ between house characteristics?
+The change in price relative to other house characteristics can be seen by plotting the two most informative continuous variables against each other - size vs price. This produced some very interesting results (see appendix for all figures). Here we will discuss the effects of 2 factors- Number of Supermarkets (NoP) and Number of Rooms (NoR).
+
+```{r houseCharact, echo = FALSE, fig.height = 4, fig.width=8}
+filterData <- data %>%
+  filter(Size < 30000)
+
+plot1 <- ggplot(filterData) +
+  geom_point(aes(Size, Price, colour= factor(NoR))) +
+  labs(color="NoR") +
+  ggtitle("NoR: Size (< 30000) vs Price")
+
+plot2 <- ggplot(filterData) +
+  geom_point(aes(Size, Price, colour= factor(NoS))) +
+  labs(color="NoS") +
+  ggtitle("NoS: Size (< 30000) vs Price")
+
+ggarrange(plot1, plot2)
+
+```
+
+As expected, the number of rooms and the size of the house was somewhat correlated as seen from above. However, the close relationship between the number of nearby supermarkets and price is unexpected. This is again demonstrated by the graph below.
+
+```{r echo=FALSE, fig.height = 3, fig.width=4}
+# Group by ToP and check prices
+superdata <- data %>% 
+  group_by(NoS) %>%
+  summarise("Average Price" = mean(Price), "Average Size" = mean(Size))
+ggplot(superdata) +
+  aes(NoS,`Average Price`) +
+  geom_col() +
+  ggtitle("NoS effects on average Price")
+```
+
+**Answer:**
+There seems to be a strong relationship between the number of nearby supermarkets and the house price. This should be kept in consideration for future modelling.
+
+### Question 8: How is price distributed?
+For constructing Genereralisted linear models and to get an overview of the spread of the prices, its helpful to understand how the price is distributed.
+```{r, echo = FALSE, fig.align="center"}
+filterData <- data %>%
+  filter(Price < 4000)
+plot(density(filterData$Price), main = "PDF of Price < 4000")
+
+```
+
+**Answer:**
+Price is heavily positively skewed with a mean of `r round(mean(data$Price),2)` and a median of `r median(data$Price)`. It also has a very large tail with `r nrow(filter(data, Price > mean(data$Price)*40))` houses costing more than 4000% of the average home.
+
+## Objective 3: Conclusion
+The data is now prepared for modelling. Important factors to consider when beginning the modelling stage is that price is highly positively skewed and that the number of nearby supermarkets affects housing prices.
+
+# Task 4: Conclusion of EDA
+
+## Recommeded Models
+For further analysis, a number of models should be used to fit the pricing data including; linear regression, a generalised linear model (GLM), regression trees and a neural network. Since one of the main aims of this report is to distinguish the features that affect buyers behaviour, the interpretability of a model is prioritised as well as its predictive power.
+
+**Linear Regression:**
+Linear regression is effective in that it is simple, easily interpretable and can be a powerful predictor. Since the number of predictors is small, best subsets selection may be able to be used to identify the best regression model. Rectangularization methods such as lasso, ridge and elastic net should also be considered for feature selection and to choose the optimal bias-variance trade-off through an appropriate lambda choice.
+
+**GLM:**
+Since price has such a large tail, the gamma distribution would be the most appropriate response distribution. The log link is also recommended for easily interpreting the coefficients. Unlike linear regression, GLM's can capture non-linear trends and so may provide some insights into the pricing behaviour of Cydney that linear regression could not.
+
+**Regression Trees:**
+Trees can be a helpful visualisation of how terms are interacting with one another and can also have strong predictive capabilities. Therefore this report recommends using tree based methods such as Random forest, bagging and boosting to model price.
+
+**Neural Network:**
+Although neural networks are usually a much less interpretive model than others, it can be a powerful predictive tool. Since the aim of this study is to both predict prices and understand the underlying factors of the Cydney housing market, a neural network model would not be sufficient to interpret buyer behaviour. But, it should still be used to compare its predictive power relative to other models.
+
+## Conclusion:
+This EDA has imported and cleaned the data, removed UnCon and number of parks as collinear terms, and shown how price changes with some predictors. 
+
+The data was first imported into RStudio. After a quick inspection it was clear that the data had some problems including missing values and inconsistent entries. After replacing mislabled values and removing some extreme outliers where the number of nearby supermarkets or parks exceeded 1000, `r round(propMissing*100,2)`% of the data was missing. This was assumed to be negligible and so all missing values were removed.
+
+After creating a correlation matrix, it was found that buildings under construction were never ready to move in, and so the variable UnCon was removed from the dataset. Similarly, the number of parks was removed as it was highly correlated with the number of rooms. After checking that all continuous data was linear, it was also found that there were not any immediately obvious interaction terms and so none were introduced into the dataset. The price distribution also had long tails and was positively skewed. Lastly, it was found that the houses with more supermarkets less than 3km away were on average much more expensive.
+
+\pagebreak
+
+# Appendix
+## Assumptions 
+
+  * The number of Parks in a 5km radius of a home is not greater than 1000.
+  * The number of supermarkets in a 3km radius of a home is not greater than 1000.
+  * BHK and bHK values were equivalent.
+  * All pricing values are legitimate and large values are indicative of the Cydney housing market.
+  * Longitude and Latitude were not used in this report for any area locating.
+  * Different units in apartment complexes fall under different listings and so can account for any duplicates in the data
+
+## Summary of columns
+```{r echo = FALSE, warning=FALSE}
+for (i in 1:ncol(data)) {
+  print(colnames(data)[i])
+  print(summary(data[,i]))
+}
+```
+
+## Outlier plots
+```{r outlierPlots, fig.height = 3, fig.align = "center", echo = FALSE, warning=FALSE}
+par(mfrow=c(1,2))
+for(i in 1:ncol(data)) {
+  var = paste0(colnames(data)[i])
+  plot <- plot(data[,i], main = var)
+}
+```
+
+## Longitude and Latitude vs Price
+```{r, echo = FALSE, fig.align = "center", warning=FALSE}
+plotlong <- ggplot(data) +
+  geom_point(aes(Price, Longitude)) +
+  ggtitle("Price vs Longitude")
+plotloglong <- ggplot(data) +
+  geom_point(aes(Price, log(Longitude))) +
+  ggtitle("Price vs log(Longitude)")
+
+plotlat <- ggplot(data) +
+  geom_point(aes(Price, Latitude)) +
+  ggtitle("Price vs Latitude")
+plotloglat <- ggplot(data) +
+  geom_point(aes(Price, log(Latitude))) +
+  ggtitle("Price vs log(Latitude)")
+
+ggarrange(plotlong, plotloglong, plotlat, plotloglat, ncol = 2, nrow = 2)
+```
+
+## Interaction plots between variables
+
+```{r interactions, echo = FALSE, fig.height = 2, fig.width=3.5, warning=FALSE}
+for(i in 1:ncol(data)) {
+  for(j in i:ncol(data)) {
+    if(i != j) {
+    # if(typeof(data[,i]) == "integer" && class(data[,j]) == "numeric") {
+      title = paste(colnames(data)[i], "vs", colnames(data)[j])
+      plot <- ggplot() +
+        geom_point(aes(data[,i], data[,j])) +
+        ggtitle(title) +
+        xlab(colnames(data)[i]) +
+        ylab(colnames(data)[j])
+      print(plot)
+    # }
+    }
+  }
+}
+
+```
+
+## Effects of house characteristics on size and price
+```{r, echo = FALSE, warning=FALSE, fig.height = 4}
+filterData <- filter(data, Size < 30000)
+factorVar <- c(2,3,4,5,7,8,11)
+for(i in factorVar) {
+  var <- colnames(data)[i]
+  plot <- ggplot(filterData) +
+    geom_point(aes(Size, Price, colour= factor(get(var)))) +
+    labs(color=var) +
+    ggtitle(paste("Effects of", var, "on Size vs Price"))
+  print(plot)
+}
+
+```
